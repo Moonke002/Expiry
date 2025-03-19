@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Spoilage Predictor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        header h1 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: #7f8c8d;
+        }
+
+        .prediction-form {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .results {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .prediction-result, .recipe-suggestions {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .message {
+            padding: 1rem;
+            border-radius: 5px;
+            margin-top: 1rem;
+        }
+
+        .message.high-risk {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        .message.low-risk {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .recipe-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .recipe-card h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.4rem;
+        }
+
+        .recipe-card h4 {
+            color: #34495e;
+            margin: 1rem 0 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .recipe-card ul, .recipe-card ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .recipe-card li {
+            margin-bottom: 0.5rem;
+            color: #666;
+        }
+
+        .recipe-card ol li {
+            margin-bottom: 0.8rem;
+        }
+
+        .error {
+            color: #c62828;
+            background-color: #ffebee;
+            padding: 1rem;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .results {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+
+            .recipe-card {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Food Spoilage Predictor</h1>
+            <p>Predict food spoilage and get recipe suggestions to minimize waste</p>
+        </header>
+
+        <main>
+            <section class="prediction-form">
+                <h2>Enter Storage Conditions</h2>
+                <form id="predictionForm">
+                    <div class="form-group">
+                        <label for="temperature">Temperature (°F):</label>
+                        <input type="number" id="temperature" required min="32" max="95" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="is_refrigerated">Storage Type:</label>
+                        <select id="is_refrigerated" required>
+                            <option value="1">Refrigerated</option>
+                            <option value="0">Room Temperature</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="is_sealed">Packaging:</label>
+                        <select id="is_sealed" required>
+                            <option value="1">Sealed</option>
+                            <option value="0">Unsealed</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="foodType">Food Category:</label>
+                        <select id="foodType" required>
+                            <option value="">Select a category</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="specificFood">Specific Food:</label>
+                        <select id="specificFood" required>
+                            <option value="">Select a food item</option>
+                        </select>
+                    </div>
+                    <button type="submit">Predict & Get Recipes</button>
+                </form>
+            </section>
+
+            <section class="results" id="results">
+                <div class="prediction-result">
+                    <h2>Prediction Result</h2>
+                    <div id="predictionMessage" class="message"></div>
+                </div>
+                <div class="recipe-suggestions">
+                    <h2>Recipe Suggestions</h2>
+                    <div id="recipeList" class="recipe-grid"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Food database
+        const FOOD_TYPES = {
+            "vegetables": {
+                "name": "Vegetables",
+                "items": [
+                    "Carrots", "Broccoli", "Lettuce", "Tomatoes", "Bell Peppers", "Onions",
+                    "Spinach", "Kale", "Cucumber", "Zucchini", "Mushrooms", "Cauliflower"
+                ]
+            },
+            "fruits": {
+                "name": "Fruits",
+                "items": [
+                    "Apples", "Bananas", "Oranges", "Berries", "Grapes", "Avocados",
+                    "Mangoes", "Pineapple", "Peaches", "Pears", "Watermelon", "Kiwi"
+                ]
+            },
+            "meat": {
+                "name": "Meat & Seafood",
+                "items": [
+                    "Chicken", "Beef", "Pork", "Fish", "Turkey", "Lamb",
+                    "Shrimp", "Salmon", "Tuna", "Ground Beef", "Sausage", "Bacon"
+                ]
+            },
+            "dairy": {
+                "name": "Dairy & Eggs",
+                "items": [
+                    "Milk", "Cheese", "Yogurt", "Butter", "Cream", "Ice Cream",
+                    "Eggs", "Sour Cream", "Cottage Cheese", "Whipped Cream", "Greek Yogurt", "Heavy Cream"
+                ]
+            },
+            "pantry": {
+                "name": "Pantry Items",
+                "items": [
+                    "Rice", "Pasta", "Canned Goods", "Dried Beans", "Nuts", "Flour",
+                    "Oats", "Cereal", "Dried Fruits", "Spices", "Oil", "Vinegar"
+                ]
+            },
+            "baked_goods": {
+                "name": "Baked Goods",
+                "items": [
+                    "Bread", "Muffins", "Cookies", "Cake", "Pie", "Croissants",
+                    "Bagels", "Donuts", "Scones", "Brownies", "Pizza Dough", "Tortillas"
+                ]
+            },
+            "snacks": {
+                "name": "Snacks",
+                "items": [
+                    "Chips", "Popcorn", "Crackers", "Nuts", "Dried Fruits", "Granola Bars",
+                    "Pretzels", "Trail Mix", "Cookies", "Fruit Snacks", "Jerky", "Cheese Puffs"
+                ]
+            }
+        };
+
+        // Sample data for prediction
+        const sampleData = [
+            [77, 1, 1],  // temperature (F), is_refrigerated, is_sealed
+            [86, 0, 0],
+            [39, 1, 1],
+            [68, 0, 1],
+            [59, 1, 0],
+            [95, 0, 0],
+            [41, 1, 1],
+            [64, 0, 1]
+        ];
+
+        const sampleLabels = [1, 1, 0, 1, 0, 1, 0, 0];  // 1: spoils quickly, 0: stays fresh longer
+
+        // Simple prediction function
+        function predictSpoilage(temperature, isRefrigerated, isSealed) {
+            // Simple rule-based prediction
+            if (temperature > 70 && !isRefrigerated) return 1;
+            if (temperature > 85) return 1;
+            if (temperature < 40 && isRefrigerated && isSealed) return 0;
+            if (temperature < 60 && isRefrigerated) return 0;
+            return 1; // Default to high risk
+        }
+
+        // Storage recommendations
+        const STORAGE_TIPS = {
+            vegetables: {
+                refrigeration: "Store in the crisper drawer",
+                temperature: "32-40°F",
+                packaging: "Use perforated plastic bags or containers",
+                tips: "Keep away from ethylene-producing fruits, remove any damaged parts"
+            },
+            fruits: {
+                refrigeration: "Most fruits should be refrigerated after ripening",
+                temperature: "32-40°F",
+                packaging: "Use breathable containers or bags",
+                tips: "Some fruits like bananas and avocados should ripen at room temperature first"
+            },
+            meat: {
+                refrigeration: "Always refrigerate or freeze",
+                temperature: "32-40°F",
+                packaging: "Use airtight containers or vacuum-sealed bags",
+                tips: "Keep raw meat on the bottom shelf to prevent cross-contamination"
+            },
+            dairy: {
+                refrigeration: "Always refrigerate",
+                temperature: "32-40°F",
+                packaging: "Keep in original packaging",
+                tips: "Store away from strong-smelling foods"
+            },
+            pantry: {
+                refrigeration: "Most items can be stored at room temperature",
+                temperature: "50-70°F",
+                packaging: "Use airtight containers",
+                tips: "Keep in a cool, dark, dry place"
+            },
+            baked_goods: {
+                refrigeration: "Most items can be stored at room temperature",
+                temperature: "50-70°F",
+                packaging: "Use airtight containers or bags",
+                tips: "Freeze for longer storage"
+            },
+            snacks: {
+                refrigeration: "Most items can be stored at room temperature",
+                temperature: "50-70°F",
+                packaging: "Keep in original packaging or airtight containers",
+                tips: "Store away from direct sunlight"
+            }
+        };
+
+        // Shelf life estimates (in days)
+        const SHELF_LIFE = {
+            vegetables: {
+                refrigerated: 7,
+                room_temp: 3
+            },
+            fruits: {
+                refrigerated: 5,
+                room_temp: 2
+            },
+            meat: {
+                refrigerated: 3,
+                room_temp: 1
+            },
+            dairy: {
+                refrigerated: 7,
+                room_temp: 1
+            },
+            pantry: {
+                refrigerated: 30,
+                room_temp: 30
+            },
+            baked_goods: {
+                refrigerated: 7,
+                room_temp: 3
+            },
+            snacks: {
+                refrigerated: 14,
+                room_temp: 7
+            }
+        };
+
+        // Generate recipe function
+        function generateRecipe(foodType, specificFood) {
+            // Specific recipes for different foods
+            const specificRecipes = {
+                // Vegetables
+                "Carrots": [
+                    {
+                        name: "Honey-Glazed Carrots with Thyme",
+                        ingredients: [
+                            "Carrots",
+                            "Honey",
+                            "Fresh Thyme",
+                            "Butter",
+                            "Orange Zest",
+                            "Salt",
+                            "Black Pepper"
+                        ],
+                        instructions: [
+                            "Peel and cut carrots into uniform pieces",
+                            "Melt butter in a pan over medium heat",
+                            "Add carrots and cook until slightly tender",
+                            "Add honey, thyme, and orange zest",
+                            "Continue cooking until carrots are glazed",
+                            "Season with salt and pepper",
+                            "Serve hot as a side dish"
+                        ]
+                    },
+                    {
+                        name: "Carrot and Ginger Soup",
+                        ingredients: [
+                            "Carrots",
+                            "Fresh Ginger",
+                            "Onion",
+                            "Garlic",
+                            "Vegetable Stock",
+                            "Coconut Milk",
+                            "Cumin",
+                            "Coriander"
+                        ],
+                        instructions: [
+                            "Sauté onion, garlic, and ginger",
+                            "Add chopped carrots and spices",
+                            "Pour in vegetable stock",
+                            "Simmer until carrots are tender",
+                            "Blend until smooth",
+                            "Add coconut milk",
+                            "Garnish with fresh herbs"
+                        ]
+                    }
+                ],
+                "Broccoli": [
+                    {
+                        name: "Broccoli and Cheddar Soup",
+                        ingredients: [
+                            "Broccoli",
+                            "Sharp Cheddar",
+                            "Onion",
+                            "Garlic",
+                            "Chicken Stock",
+                            "Heavy Cream",
+                            "Nutmeg",
+                            "Salt and Pepper"
+                        ],
+                        instructions: [
+                            "Sauté onion and garlic",
+                            "Add chopped broccoli",
+                            "Pour in chicken stock",
+                            "Simmer until broccoli is tender",
+                            "Add cream and cheese",
+                            "Blend until smooth",
+                            "Season with nutmeg"
+                        ]
+                    },
+                    {
+                        name: "Roasted Broccoli with Parmesan",
+                        ingredients: [
+                            "Broccoli",
+                            "Parmesan Cheese",
+                            "Garlic",
+                            "Olive Oil",
+                            "Red Pepper Flakes",
+                            "Lemon Zest",
+                            "Salt"
+                        ],
+                        instructions: [
+                            "Cut broccoli into florets",
+                            "Toss with olive oil and garlic",
+                            "Spread on baking sheet",
+                            "Roast at 400°F for 20 minutes",
+                            "Add parmesan and pepper flakes",
+                            "Roast for 5 more minutes",
+                            "Finish with lemon zest"
+                        ]
+                    }
+                ],
+                // Fruits
+                "Apples": [
+                    {
+                        name: "Classic Apple Pie",
+                        ingredients: [
+                            "Apples",
+                            "Pie Crust",
+                            "Cinnamon",
+                            "Sugar",
+                            "Lemon Juice",
+                            "Butter",
+                            "Nutmeg",
+                            "Vanilla Extract"
+                        ],
+                        instructions: [
+                            "Peel and slice apples",
+                            "Mix with sugar and spices",
+                            "Line pie dish with crust",
+                            "Fill with apple mixture",
+                            "Add butter pieces",
+                            "Top with second crust",
+                            "Bake until golden"
+                        ]
+                    },
+                    {
+                        name: "Apple and Brie Grilled Cheese",
+                        ingredients: [
+                            "Apples",
+                            "Brie Cheese",
+                            "Sourdough Bread",
+                            "Honey",
+                            "Thyme",
+                            "Butter",
+                            "Dijon Mustard"
+                        ],
+                        instructions: [
+                            "Slice apples thinly",
+                            "Layer with brie",
+                            "Spread mustard on bread",
+                            "Assemble sandwich",
+                            "Butter outside",
+                            "Grill until golden",
+                            "Drizzle with honey"
+                        ]
+                    }
+                ],
+                "Bananas": [
+                    {
+                        name: "Banana Bread with Chocolate Chips",
+                        ingredients: [
+                            "Bananas",
+                            "Flour",
+                            "Eggs",
+                            "Sugar",
+                            "Butter",
+                            "Chocolate Chips",
+                            "Vanilla",
+                            "Cinnamon"
+                        ],
+                        instructions: [
+                            "Mash ripe bananas",
+                            "Mix with wet ingredients",
+                            "Combine dry ingredients",
+                            "Fold in chocolate chips",
+                            "Pour into loaf pan",
+                            "Bake at 350°F",
+                            "Cool before slicing"
+                        ]
+                    },
+                    {
+                        name: "Banana Foster French Toast",
+                        ingredients: [
+                            "Bananas",
+                            "Bread",
+                            "Eggs",
+                            "Milk",
+                            "Brown Sugar",
+                            "Rum",
+                            "Vanilla",
+                            "Cinnamon"
+                        ],
+                        instructions: [
+                            "Make custard mixture",
+                            "Dip bread slices",
+                            "Cook French toast",
+                            "Caramelize bananas",
+                            "Add rum and sugar",
+                            "Top toast with bananas",
+                            "Serve with whipped cream"
+                        ]
+                    }
+                ],
+                // Meat
+                "Chicken": [
+                    {
+                        name: "Chicken Marsala",
+                        ingredients: [
+                            "Chicken Breast",
+                            "Marsala Wine",
+                            "Mushrooms",
+                            "Garlic",
+                            "Flour",
+                            "Butter",
+                            "Fresh Herbs",
+                            "Chicken Stock"
+                        ],
+                        instructions: [
+                            "Pound chicken thin",
+                            "Dredge in flour",
+                            "Brown chicken",
+                            "Sauté mushrooms",
+                            "Add wine and stock",
+                            "Simmer until reduced",
+                            "Finish with herbs"
+                        ]
+                    },
+                    {
+                        name: "Chicken Tikka Masala",
+                        ingredients: [
+                            "Chicken",
+                            "Yogurt",
+                            "Garam Masala",
+                            "Ginger",
+                            "Garlic",
+                            "Tomato Sauce",
+                            "Cream",
+                            "Cilantro"
+                        ],
+                        instructions: [
+                            "Marinate chicken",
+                            "Grill or bake chicken",
+                            "Make sauce",
+                            "Add chicken to sauce",
+                            "Simmer together",
+                            "Add cream",
+                            "Garnish with cilantro"
+                        ]
+                    }
+                ],
+                "Salmon": [
+                    {
+                        name: "Honey-Glazed Salmon",
+                        ingredients: [
+                            "Salmon",
+                            "Honey",
+                            "Soy Sauce",
+                            "Garlic",
+                            "Ginger",
+                            "Lemon",
+                            "Sesame Seeds",
+                            "Green Onions"
+                        ],
+                        instructions: [
+                            "Mix glaze ingredients",
+                            "Marinate salmon",
+                            "Preheat oven",
+                            "Bake salmon",
+                            "Brush with glaze",
+                            "Broil until caramelized",
+                            "Garnish with seeds"
+                        ]
+                    },
+                    {
+                        name: "Salmon Poke Bowl",
+                        ingredients: [
+                            "Salmon",
+                            "Sushi Rice",
+                            "Avocado",
+                            "Cucumber",
+                            "Seaweed",
+                            "Soy Sauce",
+                            "Sesame Oil",
+                            "Green Onions"
+                        ],
+                        instructions: [
+                            "Cube salmon",
+                            "Cook sushi rice",
+                            "Prepare vegetables",
+                            "Make sauce",
+                            "Assemble bowl",
+                            "Add toppings",
+                            "Drizzle with sauce"
+                        ]
+                    }
+                ],
+                // Dairy
+                "Cheese": [
+                    {
+                        name: "Three-Cheese Mac and Cheese",
+                        ingredients: [
+                            "Cheddar",
+                            "Gruyere",
+                            "Parmesan",
+                            "Pasta",
+                            "Milk",
+                            "Butter",
+                            "Flour",
+                            "Nutmeg"
+                        ],
+                        instructions: [
+                            "Make roux",
+                            "Add milk",
+                            "Melt cheeses",
+                            "Cook pasta",
+                            "Combine sauce and pasta",
+                            "Top with cheese",
+                            "Bake until bubbly"
+                        ]
+                    },
+                    {
+                        name: "Cheese and Spinach Stuffed Shells",
+                        ingredients: [
+                            "Ricotta",
+                            "Mozzarella",
+                            "Parmesan",
+                            "Pasta Shells",
+                            "Spinach",
+                            "Marinara",
+                            "Eggs",
+                            "Herbs"
+                        ],
+                        instructions: [
+                            "Mix cheeses",
+                            "Add spinach",
+                            "Stuff shells",
+                            "Arrange in dish",
+                            "Top with sauce",
+                            "Add cheese",
+                            "Bake until golden"
+                        ]
+                    }
+                ],
+                "Yogurt": [
+                    {
+                        name: "Yogurt-Marinated Chicken Kebabs",
+                        ingredients: [
+                            "Greek Yogurt",
+                            "Chicken",
+                            "Lemon",
+                            "Garlic",
+                            "Spices",
+                            "Bell Peppers",
+                            "Onion",
+                            "Fresh Herbs"
+                        ],
+                        instructions: [
+                            "Make marinade",
+                            "Cut chicken",
+                            "Marinate chicken",
+                            "Thread on skewers",
+                            "Add vegetables",
+                            "Grill kebabs",
+                            "Serve with sauce"
+                        ]
+                    },
+                    {
+                        name: "Yogurt and Berry Breakfast Bowl",
+                        ingredients: [
+                            "Greek Yogurt",
+                            "Mixed Berries",
+                            "Granola",
+                            "Honey",
+                            "Chia Seeds",
+                            "Almonds",
+                            "Vanilla",
+                            "Mint"
+                        ],
+                        instructions: [
+                            "Layer yogurt",
+                            "Add berries",
+                            "Top with granola",
+                            "Add seeds",
+                            "Drizzle honey",
+                            "Add nuts",
+                            "Garnish with mint"
+                        ]
+                    }
+                ]
+            };
+
+            // If we have specific recipes for this food, return them
+            if (specificRecipes[specificFood]) {
+                return specificRecipes[specificFood];
+            }
+
+            // Fallback to category-based recipes if no specific recipes exist
+            const categoryRecipes = {
+                vegetables: [
+                    {
+                        name: `Asian-Inspired ${specificFood} Stir Fry`,
+                        ingredients: [
+                            specificFood,
+                            "Soy Sauce",
+                            "Garlic",
+                            "Ginger",
+                            "Sesame Oil",
+                            "Red Pepper Flakes",
+                            "Green Onions",
+                            "Sesame Seeds",
+                            "Rice Vinegar"
+                        ],
+                        instructions: [
+                            "Wash and cut the vegetables into uniform pieces",
+                            "Heat sesame oil in a wok or large pan over high heat",
+                            "Add minced garlic and ginger, stir fry for 30 seconds",
+                            "Add vegetables and stir fry for 3-5 minutes until crisp-tender",
+                            "Add soy sauce, rice vinegar, and red pepper flakes",
+                            "Garnish with chopped green onions and sesame seeds",
+                            "Serve hot with rice or noodles"
+                        ]
+                    }
+                ],
+                fruits: [
+                    {
+                        name: `${specificFood} & Yogurt Parfait`,
+                        ingredients: [
+                            specificFood,
+                            "Greek Yogurt",
+                            "Granola",
+                            "Honey",
+                            "Chia Seeds",
+                            "Vanilla Extract",
+                            "Mint Leaves"
+                        ],
+                        instructions: [
+                            "Layer Greek yogurt in a glass",
+                            "Add a layer of granola",
+                            "Arrange sliced fruit on top",
+                            "Drizzle with honey",
+                            "Sprinkle chia seeds",
+                            "Garnish with mint leaves",
+                            "Serve immediately"
+                        ]
+                    }
+                ],
+                meat: [
+                    {
+                        name: `${specificFood} & Vegetable Curry`,
+                        ingredients: [
+                            specificFood,
+                            "Coconut Milk",
+                            "Curry Paste",
+                            "Onion",
+                            "Bell Peppers",
+                            "Fresh Ginger",
+                            "Garlic",
+                            "Cilantro",
+                            "Rice"
+                        ],
+                        instructions: [
+                            "Cut meat into cubes",
+                            "Sauté onion, garlic, and ginger",
+                            "Add curry paste and cook until fragrant",
+                            "Add meat and cook until browned",
+                            "Add coconut milk and vegetables",
+                            "Simmer until meat is tender",
+                            "Serve with rice and fresh cilantro"
+                        ]
+                    }
+                ],
+                dairy: [
+                    {
+                        name: `${specificFood} & Spinach Stuffed Shells`,
+                        ingredients: [
+                            specificFood,
+                            "Jumbo Pasta Shells",
+                            "Spinach",
+                            "Ricotta Cheese",
+                            "Mozzarella",
+                            "Parmesan",
+                            "Marinara Sauce",
+                            "Fresh Basil"
+                        ],
+                        instructions: [
+                            "Cook pasta shells",
+                            "Mix dairy product with ricotta and spinach",
+                            "Stuff shells with mixture",
+                            "Arrange in baking dish",
+                            "Top with marinara and cheese",
+                            "Bake until bubbly",
+                            "Garnish with fresh basil"
+                        ]
+                    }
+                ],
+                pantry: [
+                    {
+                        name: `${specificFood} & Vegetable Buddha Bowl`,
+                        ingredients: [
+                            specificFood,
+                            "Quinoa",
+                            "Roasted Vegetables",
+                            "Chickpeas",
+                            "Tahini Sauce",
+                            "Fresh Greens",
+                            "Seeds",
+                            "Lemon"
+                        ],
+                        instructions: [
+                            "Cook quinoa and main ingredient",
+                            "Roast vegetables",
+                            "Make tahini sauce",
+                            "Assemble bowl with greens",
+                            "Add cooked ingredients",
+                            "Top with sauce and seeds",
+                            "Serve with lemon wedges"
+                        ]
+                    }
+                ],
+                baked_goods: [
+                    {
+                        name: `${specificFood} & Chocolate Bread Pudding`,
+                        ingredients: [
+                            specificFood,
+                            "Chocolate Chips",
+                            "Eggs",
+                            "Heavy Cream",
+                            "Vanilla",
+                            "Cinnamon",
+                            "Raisins",
+                            "Whipped Cream"
+                        ],
+                        instructions: [
+                            "Mix eggs and cream",
+                            "Add spices and vanilla",
+                            "Mix with bread and chocolate",
+                            "Add raisins",
+                            "Pour into baking dish",
+                            "Bake until set",
+                            "Serve with whipped cream"
+                        ]
+                    }
+                ],
+                snacks: [
+                    {
+                        name: `${specificFood} & Nut Energy Bites`,
+                        ingredients: [
+                            specificFood,
+                            "Mixed Nuts",
+                            "Dates",
+                            "Oats",
+                            "Honey",
+                            "Chia Seeds",
+                            "Vanilla Extract",
+                            "Coconut"
+                        ],
+                        instructions: [
+                            "Process nuts and dates",
+                            "Mix with main ingredient",
+                            "Add oats and seeds",
+                            "Form into balls",
+                            "Roll in coconut",
+                            "Chill until firm",
+                            "Store in airtight container"
+                        ]
+                    }
+                ]
+            };
+
+            return categoryRecipes[foodType] || [{
+                name: `${specificFood} Recipe`,
+                ingredients: ["Recipe not available"],
+                instructions: ["Please try a different food type"]
+            }];
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('predictionForm');
+            const predictionMessage = document.getElementById('predictionMessage');
+            const recipeList = document.getElementById('recipeList');
+            const foodTypeSelect = document.getElementById('foodType');
+            const specificFoodSelect = document.getElementById('specificFood');
+
+            // Load food types
+            function loadFoodTypes() {
+                foodTypeSelect.innerHTML = '<option value="">Select a category</option>';
+                Object.entries(FOOD_TYPES).forEach(([key, value]) => {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = value.name;
+                    foodTypeSelect.appendChild(option);
+                });
+            }
+
+            // Update specific food options when food type changes
+            foodTypeSelect.addEventListener('change', () => {
+                const selectedType = foodTypeSelect.value;
+                
+                if (selectedType) {
+                    const items = FOOD_TYPES[selectedType].items;
+                    specificFoodSelect.innerHTML = '<option value="">Select a food item</option>';
+                    items.forEach(item => {
+                        const option = document.createElement('option');
+                        option.value = item;
+                        option.textContent = item;
+                        specificFoodSelect.appendChild(option);
+                    });
+                } else {
+                    specificFoodSelect.innerHTML = '<option value="">Select a food item</option>';
+                }
+            });
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const temperature = parseFloat(document.getElementById('temperature').value);
+                const isRefrigerated = parseInt(document.getElementById('is_refrigerated').value);
+                const isSealed = parseInt(document.getElementById('is_sealed').value);
+                const foodType = document.getElementById('foodType').value;
+                const specificFood = document.getElementById('specificFood').value;
+
+                // Get prediction
+                const prediction = predictSpoilage(temperature, isRefrigerated, isSealed);
+                
+                // Get storage tips and shelf life
+                const storageTips = STORAGE_TIPS[foodType];
+                const shelfLife = SHELF_LIFE[foodType];
+                const estimatedDays = isRefrigerated ? shelfLife.refrigerated : shelfLife.room_temp;
+                
+                // Update prediction message with detailed information
+                predictionMessage.innerHTML = `
+                    <h3>${prediction === 1 ? 'High Risk of Spoilage' : 'Low Risk of Spoilage'}</h3>
+                    <p><strong>Estimated Shelf Life:</strong> ${estimatedDays} days</p>
+                    <p><strong>Storage Recommendations:</strong></p>
+                    <ul>
+                        <li>${storageTips.refrigeration}</li>
+                        <li>Ideal Temperature: ${storageTips.temperature}</li>
+                        <li>Packaging: ${storageTips.packaging}</li>
+                        <li>Additional Tips: ${storageTips.tips}</li>
+                    </ul>
+                `;
+                predictionMessage.className = `message ${prediction === 1 ? 'high-risk' : 'low-risk'}`;
+
+                // Get recipe suggestions
+                const recipes = generateRecipe(foodType, specificFood);
+
+                // Display recipes
+                recipeList.innerHTML = recipes.map(recipe => `
+                    <div class="recipe-card">
+                        <h3>${recipe.name}</h3>
+                        <h4>Ingredients:</h4>
+                        <ul>
+                            ${recipe.ingredients.map(ingredient => `<li>${ingredient}</li>`).join('')}
+                        </ul>
+                        <h4>Instructions:</h4>
+                        <ol>
+                            ${recipe.instructions.map(instruction => `<li>${instruction}</li>`).join('')}
+                        </ol>
+                    </div>
+                `).join('');
+            });
+
+            // Load food types when page loads
+            loadFoodTypes();
+        });
+    </script>
+</body>
+</html> 
