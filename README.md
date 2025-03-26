@@ -2,16 +2,6 @@
 
 A web application that predicts food spoilage based on storage conditions and suggests recipes to minimize waste.
 
-## Features
-
-- Predict food spoilage based on:
-  - Temperature
-  - Humidity
-  - Storage type (refrigerated/room temperature)
-  - Packaging (sealed/unsealed)
-- Get recipe suggestions based on food type
-- Modern, responsive user interface
-
 ## Setup
 
 1. Install Python dependencies:
@@ -37,16 +27,10 @@ python app.py
 
 - Backend: Python Flask with scikit-learn
 - Frontend: HTML, CSS, JavaScript
-- Model: Random Forest Classifier
 - API Endpoints:
   - POST /predict: Get spoilage prediction
   - GET /recipes: Get recipe suggestions
 
 ## Note
 
-This is a demo application using sample data. For production use, you would need to:
-- Train the model with real food spoilage data
-- Expand the recipe database
-- Add user authentication
-- Implement proper error handling
-- Add input validation 
+This is a demo application using sample data.
